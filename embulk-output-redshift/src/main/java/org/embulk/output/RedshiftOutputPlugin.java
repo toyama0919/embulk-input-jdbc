@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableSet;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import org.embulk.spi.Exec;
 import org.embulk.config.Config;
 import org.embulk.config.ConfigDefault;
@@ -47,10 +48,12 @@ public class RedshiftOutputPlugin
         public String getSchema();
 
         @Config("access_key_id")
-        public String getAccessKeyId();
+        @ConfigDefault("null")
+        public Optional<String> getAccessKeyId();
 
         @Config("secret_access_key")
-        public String getSecretAccessKey();
+        @ConfigDefault("null")
+        public Optional<String> getSecretAccessKey();
 
         @Config("iam_user_name")
         @ConfigDefault("\"\"")
@@ -123,20 +126,24 @@ public class RedshiftOutputPlugin
 
     private static AWSCredentialsProvider getAWSCredentialsProvider(RedshiftPluginTask task)
     {
-        final AWSCredentials creds = new BasicAWSCredentials(
-                task.getAccessKeyId(), task.getSecretAccessKey());
-        return new AWSCredentialsProvider() {
-            @Override
-            public AWSCredentials getCredentials()
-            {
-                return creds;
-            }
+        if (task.getAccessKeyId().isPresent() && task.getSecretAccessKey().isPresent()) {
+            final AWSCredentials creds = new BasicAWSCredentials(
+                task.getAccessKeyId().orNull(), task.getSecretAccessKey().orNull());
 
-            @Override
-            public void refresh()
-            {
-            }
-        };
+            return new AWSCredentialsProvider() {
+                @Override
+                public AWSCredentials getCredentials()
+                {
+                    return creds;
+                }
+
+                @Override
+                public void refresh()
+                {
+                }
+            };
+        }
+        return new DefaultAWSCredentialsProviderChain();
     }
 
     @Override
